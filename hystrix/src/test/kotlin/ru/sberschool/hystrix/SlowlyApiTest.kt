@@ -15,12 +15,21 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 
 class SlowlyApiTest {
-    val client = HystrixFeign.builder()
+    private val ditto = Pokemon(132, "ditto", 3, 40)
+    private val dittoFallback = Pokemon(0, "Fallback ditto", 0, 0)
+
+    private val mockClient = HystrixFeign.builder()
         .client(ApacheHttpClient())
         .decoder(JacksonDecoder())
-        // для удобства тестирования задаем таймауты на 1 секунду
         .options(Request.Options(1, TimeUnit.SECONDS, 1, TimeUnit.SECONDS, true))
         .target(SlowlyApi::class.java, "http://127.0.0.1:18080", FallbackSlowlyApi())
+
+    private val pokeApiClient = HystrixFeign.builder()
+        .client(ApacheHttpClient())
+        .decoder(JacksonDecoder())
+        .options(Request.Options(1, TimeUnit.SECONDS, 1, TimeUnit.SECONDS, true))
+        .target(SlowlyApi::class.java, "https://pokeapi.co/api/v2/", FallbackSlowlyApi())
+
     lateinit var mockServer: ClientAndServer
 
     @BeforeEach
@@ -35,22 +44,27 @@ class SlowlyApiTest {
     }
 
     @Test
-    fun `getSomething() should return predefined data`() {
+    fun `get Ditto from pokeApi`() {
+        assertEquals(ditto, pokeApiClient.getPokemonByName("ditto"))
+    }
+
+    @Test
+    fun `get Ditto from pokeApi with fallback`() {
         // given
         MockServerClient("127.0.0.1", 18080)
             .`when`(
                 // задаем матчер для нашего запроса
                 HttpRequest.request()
                     .withMethod("GET")
-                    .withPath("/")
+                    .withPath("/pokemon/ditto")
             )
             .respond(
                 // наш запрос попадает на таймаут
                 HttpResponse.response()
                     .withStatusCode(400)
-                    .withDelay(TimeUnit.SECONDS, 30) //
+                    .withDelay(TimeUnit.SECONDS, 5) //
             )
         // expect
-        assertEquals("predefined data", client.getSomething().data)
+        assertEquals(dittoFallback, mockClient.getPokemonByName("ditto"))
     }
 }
