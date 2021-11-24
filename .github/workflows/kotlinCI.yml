@@ -15,6 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     # Setup Postgres DB for tests
     services:
+      rabbitmq:
+        image: rabbitmq:3.9-management
+        ports:
+          - 5672:5672
+          - 15672:15672
       postgres:
         image: postgres
         env:
@@ -26,6 +31,9 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
+      distributor:
+        image: shariktlt/sber_kotlin_school_2021_messaging_distributor:1.0.0-SNAPSHOT
+
     steps:
       - uses: actions/checkout@v2
       - uses: fwilhe2/setup-kotlin@main
